@@ -17,6 +17,8 @@ if uploaded_file is not None:
 
     image = Image.open(uploaded_file)
 
+    image = image.convert("RGB")
+
     image.save("temp_image.jpg")
 
     idx_to_class = {
