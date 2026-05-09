@@ -1,98 +1,41 @@
 import streamlit as st
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
 from PIL import Image
+import torch
 
-# -----------------------------
-# PAGE SETTINGS
-# -----------------------------
-st.set_page_config(page_title="Leptospira MAT Classifier")
+from mat_classifier import *
 
-st.title("Leptospira MAT Classification")
-st.write("Upload a MAT image for prediction.")
+st.title("Leptospira MAT Classifier")
 
-# -----------------------------
-# CLASS NAMES
-# -----------------------------
-classes = [
-    "0-10%",
-    "10-20%",
-    "20-30%",
-    "30-40%",
-    "40-50%",
-    "50-60%",
-    "60-70%",
-    "More than 70%"
-]
+st.write("Upload MAT image for prediction")
 
-# -----------------------------
-# IMAGE TRANSFORM
-# -----------------------------
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-])
-
-# -----------------------------
-# LOAD MODEL
-# -----------------------------
-@st.cache_resource
-def load_model():
-
-    model = models.efficientnet_v2_s(weights=None)
-
-    model.classifier[1] = nn.Linear(
-        model.classifier[1].in_features,
-        len(classes)
-    )
-
-    model.load_state_dict(
-        torch.load(
-            "best_model.pth",
-            map_location=torch.device("cpu")
-        )
-    )
-
-    model.eval()
-
-    return model
-
-model = load_model()
-
-# -----------------------------
-# FILE UPLOAD
-# -----------------------------
 uploaded_file = st.file_uploader(
-    "Upload MAT Image",
+    "Choose an image",
     type=["jpg", "jpeg", "png"]
 )
 
-# -----------------------------
-# PREDICTION
-# -----------------------------
 if uploaded_file is not None:
 
-    image = Image.open(uploaded_file).convert("RGB")
+    image = Image.open(uploaded_file)
 
-    st.image(image, caption="Uploaded Image", use_container_width=True)
+    image.save("temp_image.jpg")
 
-    tensor = transform(image).unsqueeze(0)
+    idx_to_class = {
+        0: '20-40%',
+        1: '40-50%',
+        2: '50-60%',
+        3: '60-70%',
+        4: 'Below 20%',
+        5: 'More than 70%'
+    }
 
-    with torch.no_grad():
+    model = load_model(idx_to_class)
 
-        outputs = model(tensor)
+    class_name, confidence, img = predict(
+        model,
+        "temp_image.jpg",
+        idx_to_class
+    )
 
-        probabilities = torch.softmax(outputs, dim=1)
-
-        confidence, predicted = torch.max(probabilities, 1)
-
-    class_name = classes[predicted.item()]
-    confidence_value = confidence.item()
-
-    # -----------------------------
-    # FINAL RESULT
-    # -----------------------------
     doubtful_classes = [
         "40-50%",
         "50-60%"
@@ -104,21 +47,34 @@ if uploaded_file is not None:
     ]
 
     if class_name in doubtful_classes:
-        final_result = "Doubtful Result - Requires further confirmation."
+
+        final_result = (
+            "Doubtful - Sample requires further "
+            "confirmation for Leptospira antibodies."
+        )
 
     elif class_name in positive_classes:
-        final_result = "Reactive - Sample is positive for Leptospira antibodies."
+
+        final_result = (
+            "Reactive - Sample is positive "
+            "for Leptospira antibodies."
+        )
 
     else:
-        final_result = "Non-Reactive - Sample is negative for Leptospira antibodies."
 
-    # -----------------------------
-    # OUTPUT
-    # -----------------------------
-    st.subheader("Prediction Result")
+        final_result = (
+            "Non-Reactive - Sample is negative "
+            "for Leptospira antibodies."
+        )
 
-    st.write(f"Percentage Reduction of Leptospira: {class_name}")
+    st.image(img, caption="Uploaded Image")
 
-    st.write(f"Final Result: {final_result}")
+    st.write(
+        f"### Percentage Reduction of Leptospira: {class_name}"
+    )
 
-    st.write(f"Prediction Certainty: {confidence_value:.2%}")
+    st.write(f"### Final Result: {final_result}")
+
+    st.write(
+        f"### Prediction Certainty: {confidence:.2%}"
+    )
