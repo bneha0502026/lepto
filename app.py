@@ -38,24 +38,25 @@ if uploaded_file is not None:
         idx_to_class
     )
 
-    doubtful_classes = [
-        "40-50%",
-        "50-60%"
-    ]
+    # doubtful_classes = [
+    #     "40-50%",
+       
+    # ]
 
     positive_classes = [
+        "50-60%",
         "60-70%",
         "More than 70%"
     ]
 
-    if class_name in doubtful_classes:
+    # if class_name in doubtful_classes:
 
-        final_result = (
-            "Doubtful - Sample requires further "
-            "confirmation for Leptospira antibodies."
-        )
+    #     final_result = (
+    #         "Doubtful - Sample requires further "
+    #         "confirmation for Leptospira antibodies."
+    #     )
 
-    elif class_name in positive_classes:
+    if class_name in positive_classes:
 
         final_result = (
             "Reactive - Sample is positive "
