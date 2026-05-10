@@ -4,7 +4,7 @@ import torch
 
 from mat_classifier import *
 
-st.title("Leptospira MAT Classifier")
+st.title("Leptospira MAT Vision")
 
 st.write("Upload MAT image for prediction")
 
