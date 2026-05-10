@@ -45,8 +45,8 @@ CLASS_NAMES = [
 
 CFG = {
     "batch_size": 16,
-    "epochs": 40,
-    "lr": 0.0003
+    "epochs": 80,
+    "lr": 0.0001
 }
 
 IMG_EXTS = {".jpg", ".jpeg", ".png"}
@@ -58,13 +58,19 @@ IMG_EXTS = {".jpg", ".jpeg", ".png"}
 
 train_transform = transforms.Compose([
 
-    transforms.Resize((256,256)),
+    transforms.Resize((300,300)),
 
     transforms.RandomCrop(224),
 
     transforms.RandomHorizontalFlip(),
 
     transforms.RandomRotation(25),
+
+    transforms.RandomAffine(
+        degrees=20,
+        translate=(0.1, 0.1),
+        scale=(0.9, 1.1)
+    ),
 
     transforms.ColorJitter(
         brightness=0.2,
@@ -82,7 +88,9 @@ train_transform = transforms.Compose([
 
 val_transform = transforms.Compose([
 
-    transforms.Resize((224,224)),
+    transforms.Resize((300,300)),
+
+    transforms.CenterCrop(224),
 
     transforms.ToTensor(),
 
@@ -100,7 +108,9 @@ val_transform = transforms.Compose([
 def prepare_dataset():
 
     if os.path.exists(DATA_DIR):
+
         print("Dataset already prepared")
+
         return
 
     for split in ["train", "val"]:
@@ -117,8 +127,11 @@ def prepare_dataset():
         folder = os.path.join(RAW_DATA_DIR, cls)
 
         images = [
+
             x for x in os.listdir(folder)
+
             if Path(x).suffix.lower() in IMG_EXTS
+
         ]
 
         random.shuffle(images)
@@ -132,15 +145,21 @@ def prepare_dataset():
         for img in train_imgs:
 
             shutil.copy(
+
                 os.path.join(folder, img),
+
                 f"{DATA_DIR}/train/{cls}/{img}"
+
             )
 
         for img in val_imgs:
 
             shutil.copy(
+
                 os.path.join(folder, img),
+
                 f"{DATA_DIR}/val/{cls}/{img}"
+
             )
 
     print("Dataset prepared")
@@ -163,18 +182,27 @@ def get_dataloaders():
     )
 
     train_loader = DataLoader(
+
         train_ds,
+
         batch_size=CFG["batch_size"],
+
         shuffle=True
+
     )
 
     val_loader = DataLoader(
+
         val_ds,
+
         batch_size=CFG["batch_size"]
+
     )
 
     idx_to_class = {
+
         v:k for k,v in train_ds.class_to_idx.items()
+
     }
 
     return train_loader, val_loader, idx_to_class
@@ -190,8 +218,10 @@ class MATClassifier(nn.Module):
 
         super().__init__()
 
-        self.model = models.efficientnet_v2_s(
-            weights=models.EfficientNet_V2_S_Weights.IMAGENET1K_V1
+        self.model = models.efficientnet_v2_m(
+
+            weights=models.EfficientNet_V2_M_Weights.IMAGENET1K_V1
+
         )
 
         in_features = self.model.classifier[1].in_features
@@ -207,6 +237,7 @@ class MATClassifier(nn.Module):
             nn.Dropout(0.3),
 
             nn.Linear(512, num_classes)
+
         )
 
     def forward(self, x):
@@ -229,21 +260,34 @@ def train():
     criterion = nn.CrossEntropyLoss()
 
     optimizer = optim.AdamW(
+
         model.parameters(),
+
         lr=CFG["lr"],
+
         weight_decay=1e-4
+
     )
 
     scheduler = torch.optim.lr_scheduler.StepLR(
+
         optimizer,
+
         step_size=5,
+
         gamma=0.5
+
     )
 
     best_acc = 0
 
     train_accs = []
+
     val_accs = []
+
+    patience = 10
+
+    patience_counter = 0
 
     for epoch in range(CFG["epochs"]):
 
@@ -252,6 +296,7 @@ def train():
         model.train()
 
         train_correct = 0
+
         train_total = 0
 
         for images, labels in train_loader:
@@ -283,6 +328,7 @@ def train():
         model.eval()
 
         val_correct = 0
+
         val_total = 0
 
         with torch.no_grad():
@@ -315,24 +361,40 @@ def train():
             f"Val Acc: {val_acc:.4f}"
         )
 
-        # SAVE BEST MODEL
+        # ================= SAVE BEST MODEL =================
 
         if val_acc > best_acc:
 
             best_acc = val_acc
+
+            patience_counter = 0
 
             torch.save(
                 model.state_dict(),
                 "best_model.pth"
             )
 
+        else:
+
+            patience_counter += 1
+
+        # ================= EARLY STOPPING =================
+
+        if patience_counter >= patience:
+
+            print("\nEarly stopping triggered")
+
+            break
+
     print("\nBest Validation Accuracy:", best_acc)
 
     # ================= PLOTS =================
 
-    plt.plot(train_accs, label="Train")
+    plt.figure(figsize=(10,5))
 
-    plt.plot(val_accs, label="Validation")
+    plt.plot(train_accs, label="Train Accuracy")
+
+    plt.plot(val_accs, label="Validation Accuracy")
 
     plt.xlabel("Epoch")
 
@@ -358,10 +420,12 @@ def load_model(idx_to_class):
     ).to(DEVICE)
 
     model.load_state_dict(
+
         torch.load(
             "best_model.pth",
             map_location=DEVICE
         )
+
     )
 
     model.eval()
