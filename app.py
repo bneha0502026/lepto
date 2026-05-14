@@ -4,140 +4,157 @@ import torch
 
 from mat_classifier import *
 
+# =========================================================
+# PAGE CONFIG
+# =========================================================
+
 st.set_page_config(
     page_title="Leptospira MAT Vision",
     layout="centered"
 )
 
+# =========================================================
+# TITLE
+# =========================================================
+
 st.title("Leptospira MAT Vision")
 
-st.write("Upload MAT image for prediction")
-
-
-uploaded_file = st.file_uploader(
-    "Choose an image",
-    type=["jpg", "jpeg", "png"]
+st.write(
+    "Upload one or more MAT images for prediction"
 )
 
+# =========================================================
+# MULTIPLE IMAGE UPLOAD
+# =========================================================
 
-if uploaded_file is not None:
+uploaded_files = st.file_uploader(
 
-    # =====================================================
-    # LOAD IMAGE
-    # =====================================================
+    "Choose images",
 
-    image = Image.open(uploaded_file)
+    type=["jpg", "jpeg", "png"],
 
-    image = image.convert("RGB")
+    accept_multiple_files=True
+)
 
-    image.save("temp_image.jpg")
+# =========================================================
+# CLASS LABELS
+# =========================================================
 
+idx_to_class = {
 
-    # =====================================================
-    # CLASS LABELS
-    # =====================================================
+    0: '20-40%',
 
-    idx_to_class = {
+    1: '40-50%',
 
-        0: '20-40%',
+    2: '50-60%',
 
-        1: '40-50%',
+    3: '60-70%',
 
-        2: '50-60%',
+    4: 'Below 20%',
 
-        3: '60-70%',
+    5: 'More than 70%'
+}
 
-        4: 'Below 20%',
+# =========================================================
+# LOAD MODEL
+# =========================================================
 
-        5: 'More than 70%'
-    }
+model = load_model(idx_to_class)
 
+# =========================================================
+# PREDICTIONS
+# =========================================================
 
-    # =====================================================
-    # LOAD MODEL
-    # =====================================================
+if uploaded_files:
 
-    model = load_model(idx_to_class)
+    for uploaded_file in uploaded_files:
 
+        st.divider()
 
-    # =====================================================
-    # PREDICTION
-    # =====================================================
+        # =================================================
+        # LOAD IMAGE
+        # =================================================
 
-    class_name, confidence, img = predict(
+        image = Image.open(uploaded_file)
 
-        model,
+        image = image.convert("RGB")
 
-        "temp_image.jpg",
+        temp_path = "temp_image.jpg"
 
-        idx_to_class
-    )
+        image.save(temp_path)
 
+        # =================================================
+        # PREDICT
+        # =================================================
 
-    # =====================================================
-    # POSITIVE / NEGATIVE CLASSES
-    # =====================================================
+        class_name, confidence, img = predict(
 
-    positive_classes = [
+            model,
 
-        "50-60%",
+            temp_path,
 
-        "60-70%",
-
-        "More than 70%"
-    ]
-
-
-    # =====================================================
-    # FINAL RESULT
-    # =====================================================
-
-    if class_name in positive_classes:
-
-        final_result = (
-
-            "Reactive - Sample is positive "
-
-            "for Leptospira antibodies."
+            idx_to_class
         )
 
-    else:
+        # =================================================
+        # POSITIVE CLASSES
+        # =================================================
 
-        final_result = (
+        positive_classes = [
 
-            "Non-Reactive - Sample is negative "
+            "50-60%",
 
-            "for Leptospira antibodies."
+            "60-70%",
+
+            "More than 70%"
+        ]
+
+        # =================================================
+        # FINAL RESULT
+        # =================================================
+
+        if class_name in positive_classes:
+
+            final_result = (
+
+                "Reactive - Sample is positive "
+
+                "for Leptospira antibodies."
+            )
+
+        else:
+
+            final_result = (
+
+                "Non-Reactive - Sample is negative "
+
+                "for Leptospira antibodies."
+            )
+
+        # =================================================
+        # DISPLAY
+        # =================================================
+
+        st.image(
+
+            img,
+
+            caption=uploaded_file.name,
+
+            use_container_width=True
         )
 
+        st.write(
 
-    # =====================================================
-    # DISPLAY RESULTS
-    # =====================================================
+            f"### Percentage Reduction of Leptospira: {class_name}"
+        )
 
-    st.image(
+        st.write(
 
-        img,
+            f"### Final Result: {final_result}"
+        )
 
-        caption="Uploaded Image",
+        st.write(
 
-        use_container_width=True
-    )
-
-
-    st.write(
-
-        f"### Percentage Reduction of Leptospira: {class_name}"
-    )
-
-
-    st.write(
-
-        f"### Final Result: {final_result}"
-    )
-
-
-    st.write(
-
-        f"### Prediction Certainty: {confidence:.2%}"
-    )
+            f"### Prediction Certainty: {confidence:.2%}"
+        )
