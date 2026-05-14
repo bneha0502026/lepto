@@ -9,10 +9,6 @@ from torchvision.models import (
 
 from PIL import Image
 
-# =========================================================
-# IMAGE TRANSFORM
-# =========================================================
-
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -22,38 +18,26 @@ transform = transforms.Compose([
     )
 ])
 
-# =========================================================
-# LOAD MODEL
-# =========================================================
-
 def load_model(idx_to_class):
 
-    model = efficientnet_v2_s(
-        weights=EfficientNet_V2_S_Weights.DEFAULT
-    )
+    model = efficientnet_v2_s(weights=None)
 
-    model.classifier = nn.Sequential(
-        nn.Dropout(0.3),
-        nn.Linear(1280, len(idx_to_class))
-    )
-
-    state_dict = torch.load(
-        "lepto_model.pth",
-        map_location=torch.device("cpu")
+    model.classifier[1] = nn.Linear(
+        model.classifier[1].in_features,
+        len(idx_to_class)
     )
 
     model.load_state_dict(
-        state_dict,
-        strict=False
+        torch.load(
+            "lepto_model.pth",
+            map_location=torch.device("cpu")
+        )
     )
 
     model.eval()
 
     return model
 
-# =========================================================
-# PREDICTION
-# =========================================================
 
 def predict(model, image_path, idx_to_class):
 
