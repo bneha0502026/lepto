@@ -37,11 +37,14 @@ def load_model(idx_to_class):
         nn.Linear(1280, len(idx_to_class))
     )
 
+    state_dict = torch.load(
+        "lepto_model.pth",
+        map_location=torch.device("cpu")
+    )
+
     model.load_state_dict(
-        torch.load(
-            "lepto_model.pth",
-            map_location=torch.device("cpu")
-        )
+        state_dict,
+        strict=False
     )
 
     model.eval()
